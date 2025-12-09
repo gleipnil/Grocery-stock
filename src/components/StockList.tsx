@@ -2,9 +2,15 @@
 
 import { useState } from 'react'
 import { format, differenceInDays } from 'date-fns'
-import { ChevronDown, ChevronUp, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react'
+import { ChevronDown, ChevronUp, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion"
 import { registerConsumption } from '@/lib/actions/inventory'
 import { toast } from 'sonner'
 import {
@@ -19,19 +25,31 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from '@/lib/utils'
 import { Database } from '@/types/database.types'
+import { GroupedStocks } from '@/lib/actions/inventory'
 
 type IngredientWithStocks = Database['public']['Tables']['ingredients']['Row'] & {
     stocks: Database['public']['Tables']['stocks']['Row'][]
 }
 
-export function StockList({ initialData }: { initialData: IngredientWithStocks[] }) {
-    // Filter out items with 0 total quantity
-    const activeItems = initialData.filter(ing => {
-        const total = ing.stocks?.reduce((sum, s) => sum + Number(s.quantity), 0) || 0
-        return total > 0
+const CATEGORY_ORDER = ['冷蔵庫', '棚', '倉庫']
+const CATEGORY_COLORS: Record<string, string> = {
+    '冷蔵庫': 'bg-blue-500',
+    '棚': 'bg-green-500',
+    '倉庫': 'bg-orange-500',
+    'その他': 'bg-slate-500'
+}
+
+export function StockList({ sections }: { sections: GroupedStocks }) {
+    // Determine which categories have items
+    const availableCategories = CATEGORY_ORDER.filter(cat => sections[cat]?.length > 0)
+    // Add '其他' (Others) if exists and not empty
+    Object.keys(sections).forEach(key => {
+        if (!CATEGORY_ORDER.includes(key) && sections[key]?.length > 0) {
+            availableCategories.push(key)
+        }
     })
 
-    if (!activeItems.length) {
+    if (availableCategories.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-10 text-slate-500">
                 <p>No items in stock.</p>
@@ -41,11 +59,74 @@ export function StockList({ initialData }: { initialData: IngredientWithStocks[]
     }
 
     return (
-        <div className="space-y-3">
-            {activeItems.map(ing => (
-                <StockItem key={ing.id} ingredient={ing} />
+        <Accordion type="multiple" defaultValue={['冷蔵庫']} className="space-y-4">
+            {availableCategories.map(category => (
+                <CategorySection key={category} title={category} items={sections[category]} />
             ))}
-        </div>
+        </Accordion>
+    )
+}
+
+function CategorySection({ title, items }: { title: string, items: IngredientWithStocks[] }) {
+    // Calculate Stats for Header (Option 2: Exception Management)
+    let alertCount = 0
+    let warningCount = 0
+    let safeCount = 0
+
+    items.forEach(ing => {
+        const stocks = ing.stocks || []
+        const nearest = stocks.sort((a, b) => new Date(a.expire_at).getTime() - new Date(b.expire_at).getTime())[0]
+        if (!nearest) return // Should not happen if filtered
+        const days = differenceInDays(new Date(nearest.expire_at), new Date())
+
+        if (days < 0) alertCount++
+        else if (days <= 3) warningCount++
+        else safeCount++
+    })
+
+    const total = items.length
+
+    return (
+        <AccordionItem value={title} className="border rounded-xl px-0 overflow-hidden bg-white dark:bg-slate-950 shadow-sm">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-slate-50 dark:hover:bg-slate-900 transition-all">
+                <div className="flex items-center gap-3 w-full">
+                    {/* Category Icon/Color Box */}
+                    <div className={cn("w-3 h-8 rounded-sm shrink-0", CATEGORY_COLORS[title] || 'bg-slate-400')} />
+
+                    <span className="font-bold text-lg">{title}</span>
+
+                    {/* Stats (Exception Management) */}
+                    <div className="ml-auto flex items-center gap-3 mr-2">
+                        {alertCount > 0 && (
+                            <div className="flex items-center text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded-full text-sm">
+                                <AlertCircle className="w-4 h-4 mr-1" />
+                                {alertCount}
+                            </div>
+                        )}
+                        {warningCount > 0 && (
+                            <div className="flex items-center text-yellow-600 font-bold bg-yellow-50 px-2 py-0.5 rounded-full text-sm">
+                                <AlertTriangle className="w-4 h-4 mr-1" />
+                                {warningCount}
+                            </div>
+                        )}
+                        {/* If all safe, show simple Total or Check */}
+                        {alertCount === 0 && warningCount === 0 && (
+                            <div className="text-slate-400 text-sm font-medium flex items-center">
+                                <CheckCircle2 className="w-4 h-4 mr-1 text-green-500" />
+                                Total {total}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-0 pb-0 pt-0 border-t">
+                <div>
+                    {items.map(ing => (
+                        <StockItem key={ing.id} ingredient={ing} />
+                    ))}
+                </div>
+            </AccordionContent>
+        </AccordionItem>
     )
 }
 
@@ -53,73 +134,81 @@ function StockItem({ ingredient }: { ingredient: IngredientWithStocks }) {
     const [isOpen, setIsOpen] = useState(false)
     const stocks = ingredient.stocks || []
 
-    // Calculate total quantity
     const totalQty = stocks.reduce((sum, s) => sum + Number(s.quantity), 0)
+    if (totalQty <= 0) return null
 
-    // Find shortest expiry
     const sortedStocks = [...stocks].sort((a, b) => new Date(a.expire_at).getTime() - new Date(b.expire_at).getTime())
     const nearestStock = sortedStocks[0]
     const daysLeft = nearestStock ? differenceInDays(new Date(nearestStock.expire_at), new Date()) : 999
 
-    // Status Color
-    let statusColor = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-    let Icon = CheckCircle
+    // Option C: Color Bar
+    let barColor = "bg-green-500"
+    let dateColor = "text-slate-400"
     if (daysLeft < 0) {
-        statusColor = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
-        Icon = AlertCircle
+        barColor = "bg-red-500"
+        dateColor = "text-red-500 font-bold"
     } else if (daysLeft <= 3) {
-        statusColor = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
-        Icon = AlertTriangle
+        barColor = "bg-yellow-500"
+        dateColor = "text-yellow-600 font-medium"
     }
 
     return (
-        <Card className="overflow-hidden">
+        <div className="group border-b last:border-0 bg-white dark:bg-slate-950 relative">
+            {/* Main Row */}
             <div
-                className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                className="flex items-center py-3 pl-0 pr-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                 onClick={() => setIsOpen(!isOpen)}
             >
-                <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-full", statusColor)}>
-                        <Icon className="h-5 w-5" />
+                {/* Status Bar */}
+                <div className={cn("w-1.5 self-stretch mr-4 shrink-0 transition-colors", barColor)} />
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between mb-0.5">
+                        <h3 className="font-bold text-base truncate pr-2">{ingredient.name}</h3>
+                        <span className="text-xl font-bold font-mono tracking-tight shrink-0">{Math.round(totalQty * 10) / 10}</span>
                     </div>
-                    <div>
-                        <h3 className="font-semibold">{ingredient.name}</h3>
-                        <div className="text-xs text-slate-500">
-                            {nearestStock ? `Exp: ${format(new Date(nearestStock.expire_at), 'MM/dd')} (${daysLeft}d)` : 'No expiry'}
-                        </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                        <span className={cn("truncate", dateColor)}>
+                            {nearestStock ? (
+                                <>
+                                    {format(new Date(nearestStock.expire_at), 'yyyy/MM/dd')}
+                                    <span className="ml-2">
+                                        (あと{daysLeft}日)
+                                    </span>
+                                </>
+                            ) : 'No expiry'}
+                        </span>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold">{Math.round(totalQty * 100) / 100}</span>
+
+                {/* Quick Action (Right side, slightly separated) */}
+                <div className="ml-4 shrink-0">
                     <QuickConsumeAction ingredient={ingredient} />
-                    {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                 </div>
             </div>
+
+            {/* Expanded Details */}
             {isOpen && (
-                <div className="bg-slate-50 dark:bg-slate-900 p-3 border-t">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-slate-500">
-                                <th className="font-normal pb-2">Exp</th>
-                                <th className="font-normal pb-2">Qty</th>
-                                <th className="font-normal pb-2">Purchased</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedStocks.map(stock => (
-                                <tr key={stock.id}>
-                                    <td className={cn("py-1", new Date(stock.expire_at) < new Date() ? "text-red-600 font-medium" : "")}>
-                                        {format(new Date(stock.expire_at), 'yyyy-MM-dd')}
-                                    </td>
-                                    <td className="py-1">{stock.quantity}</td>
-                                    <td className="text-slate-500 py-1">{format(new Date(stock.purchased_at || stock.created_at), 'MM/dd')}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="bg-slate-50 dark:bg-slate-900 px-4 py-3 pl-7 text-sm space-y-2 border-t border-slate-100">
+                    <div className="flex justify-between text-slate-400 text-xs uppercase font-medium tracking-wider">
+                        <span>Expiration</span>
+                        <span>Qty</span>
+                        <span>In</span>
+                    </div>
+                    {sortedStocks.map(stock => (
+                        <div key={stock.id} className="flex justify-between items-center">
+                            <span className={cn(new Date(stock.expire_at) < new Date() ? "text-red-600 font-bold" : "")}>
+                                {format(new Date(stock.expire_at), 'yyyy-MM-dd')}
+                            </span>
+                            <span className="font-mono">{stock.quantity}</span>
+                            <span className="text-slate-400 text-xs">{format(new Date(stock.purchased_at || stock.created_at), 'MM/dd')}</span>
+                        </div>
+                    ))}
                 </div>
             )}
-        </Card>
+        </div>
     )
 }
 
@@ -148,33 +237,31 @@ function QuickConsumeAction({ ingredient }: { ingredient: IngredientWithStocks }
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 text-xs"
-                    onClick={(e) => { e.stopPropagation() }}
-                >
+                <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-medium rounded-full" onClick={(e) => e.stopPropagation()}>
                     Consume
                 </Button>
             </DialogTrigger>
-            <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-xs rounded-lg">
+            <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-xs rounded-xl">
                 <DialogHeader>
                     <DialogTitle>Consume {ingredient.name}</DialogTitle>
                 </DialogHeader>
-                <div className="py-4 space-y-2">
+                <div className="py-4 space-y-3">
                     <Label>Quantity to consume</Label>
-                    <Input
-                        type="number"
-                        value={qty}
-                        onChange={e => setQty(e.target.value)}
-                        min="0"
-                        step="0.1"
-                        autoFocus
-                    />
+                    <div className="flex gap-2">
+                        <Input
+                            type="number"
+                            value={qty}
+                            onChange={e => setQty(e.target.value)}
+                            min="0"
+                            step="0.1"
+                            className="text-lg font-bold text-center"
+                            autoFocus
+                        />
+                    </div>
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleConsume} disabled={loading}>
-                        {loading ? 'Processing...' : 'Confirm'}
+                    <Button onClick={handleConsume} disabled={loading} className="w-full">
+                        {loading ? 'Processing...' : 'Confirm Consumption'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

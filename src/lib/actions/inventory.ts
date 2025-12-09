@@ -3,11 +3,13 @@
 import { createClient } from '../supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// Update this to accept category
 export async function registerPurchase(payload: {
     ingredientName: string
     quantity: number
     purchasedAt: string // ISO Date string
     kana?: string
+    category?: string
 }) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -35,6 +37,7 @@ export async function registerPurchase(payload: {
                 user_id: user.id,
                 name: payload.ingredientName,
                 kana: payload.kana || null,
+                category: payload.category || '冷蔵庫',
                 expected_shelf_days: 7 // Default
             })
             .select()
@@ -128,7 +131,12 @@ export async function registerConsumption(payload: {
     revalidatePath('/')
 }
 
-export async function getStocksGrouped() {
+import { Database } from '@/types/database.types'
+
+export type GroupedStocks = Record<string, (Database['public']['Tables']['ingredients']['Row'] & { stocks: Database['public']['Tables']['stocks']['Row'][] })[]>
+
+
+export async function getStocksGrouped(): Promise<GroupedStocks> {
     const supabase = await createClient()
 
     // Fetch all stocks with ingredient details
@@ -140,20 +148,31 @@ export async function getStocksGrouped() {
         `)
         .order('name')
 
-    if (error) return []
+    if (error || !data) return {}
 
-    // Filter out ingredients with no stocks? Or keep them?
-    // Request says "Inventory List". Usually only items IN stock.
-    // But maybe user wants to see 0 stock items?
-    // "残量0や賞味期限切れをわかりやすく表示する" -> Implies 0 items might be shown or calculated.
-    // But if we deleted the stock record when 0, then `stocks` array is empty.
-    // So we should filter in JS or let UI handle "No stock".
-    // For MVP, let's return all ingredients that have at least one stock, OR just all ingredients?
-    // "在庫の一覧" usually implies "What I have".
-    // But "残量0" implies we want to see items we ran out of?
-    // If we delete stock rows, we lose the info that we "have" it but 0.
-    // Unless we keep ingredients. 
-    // Let's return all ingredients, front-end can filter `stocks.length > 0`.
+    // Group by category
+    // Define exact keys to ensure order '冷蔵庫', '棚', '倉庫'
+    const grouped: GroupedStocks = {
+        '冷蔵庫': [],
+        '棚': [],
+        '倉庫': [],
+    }
 
-    return data || []
+    data.forEach(item => {
+        const cat = item.category || '冷蔵庫'
+        if (Array.isArray(grouped[cat])) {
+            grouped[cat].push(item)
+        } else {
+            // Fallback for unknown categories, put them in '冷蔵庫' or create logic. 
+            // Logic: if category is not in initial keys, we might want to add it or default to fridge.
+            // Given requirements are fixed 3 categories, default to '冷蔵庫' is safest if data is corrupted.
+            // Or dynamically add key. Let's dynamically add if needed but keep order for main 3?
+            // Actually, Map is better for preservation but Object is easier for serializing.
+            // Let's stick to known keys + others.
+            if (!grouped[cat]) grouped[cat] = []
+            grouped[cat].push(item)
+        }
+    })
+
+    return grouped
 }

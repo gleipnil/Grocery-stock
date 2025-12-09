@@ -15,13 +15,13 @@ export interface Database {
                     user_id: string
                     name: string
                     kana: string | null
-                    category: string | null
+                    category: string | null // '冷蔵庫' | '棚' | '倉庫'
                     expected_shelf_days: number | null
                     created_at: string
                 }
                 Insert: {
                     id?: string
-                    user_id?: string // Often handled by default/trigger or app needs to pass it if no default
+                    user_id?: string
                     name: string
                     kana?: string | null
                     category?: string | null
@@ -44,7 +44,7 @@ export interface Database {
                     user_id: string
                     ingredient_id: string
                     quantity: number
-                    purchased_at: string | null // can be null in default? Schema says 'default CURRENT_DATE', implies not null in practice but Typescript might see it as text/date string.
+                    purchased_at: string | null
                     expire_at: string
                     created_at: string
                 }

@@ -37,14 +37,15 @@ export async function getIngredients(): Promise<Ingredient[]> {
     return data
 }
 
-export async function updateIngredientAction(data: { id: string, kana: string, expected_shelf_days: number }) {
+export async function updateIngredientAction(data: { id: string, kana: string, expected_shelf_days: number, category: string }) {
     const supabase = await createClient()
 
     const { error } = await supabase
         .from('ingredients')
         .update({
             kana: data.kana || null,
-            expected_shelf_days: data.expected_shelf_days
+            expected_shelf_days: data.expected_shelf_days,
+            category: data.category
         })
         .eq('id', data.id)
 

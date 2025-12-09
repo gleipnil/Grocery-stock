@@ -39,11 +39,13 @@ export function IngredientMaster({ ingredients }: { ingredients: Ingredient[] })
     // Edit State
     const [kana, setKana] = useState("")
     const [days, setDays] = useState("")
+    const [category, setCategory] = useState("冷蔵庫")
 
     const handleEdit = (ing: Ingredient) => {
         setEditing(ing)
         setKana(ing.kana || "")
         setDays(ing.expected_shelf_days?.toString() || "7")
+        setCategory(ing.category || "冷蔵庫")
         setOpen(true)
     }
 
@@ -53,7 +55,8 @@ export function IngredientMaster({ ingredients }: { ingredients: Ingredient[] })
             await updateIngredientAction({
                 id: editing.id,
                 kana: kana,
-                expected_shelf_days: Number(days)
+                expected_shelf_days: Number(days),
+                category: category
             })
             toast.success("Updated ingredient")
             setOpen(false)
@@ -77,6 +80,7 @@ export function IngredientMaster({ ingredients }: { ingredients: Ingredient[] })
                     {ingredients.map((ing) => (
                         <TableRow key={ing.id}>
                             <TableCell className="font-medium">{ing.name}</TableCell>
+                            <TableCell>{ing.category || '-'}</TableCell>
                             <TableCell>{ing.kana || '-'}</TableCell>
                             <TableCell>{ing.expected_shelf_days} days</TableCell>
                             <TableCell>
@@ -98,6 +102,18 @@ export function IngredientMaster({ ingredients }: { ingredients: Ingredient[] })
                         <div className="space-y-2">
                             <Label>Kana / Alias</Label>
                             <Input value={kana} onChange={e => setKana(e.target.value)} placeholder="e.g. ni" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Category</Label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                value={category}
+                                onChange={e => setCategory(e.target.value)}
+                            >
+                                <option value="冷蔵庫">冷蔵庫 (Fridge)</option>
+                                <option value="棚">棚 (Shelf)</option>
+                                <option value="倉庫">倉庫 (Stock)</option>
+                            </select>
                         </div>
                         <div className="space-y-2">
                             <Label>Expected Shelf Life (Days)</Label>

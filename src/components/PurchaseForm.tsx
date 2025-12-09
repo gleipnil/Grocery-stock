@@ -40,6 +40,7 @@ export function PurchaseForm({ existingIngredients }: { existingIngredients: Ing
     const [quantity, setQuantity] = useState("1")
     const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"))
     const [kana, setKana] = useState("")
+    const [newCategory, setNewCategory] = useState("冷蔵庫")
     const [isNew, setIsNew] = useState(false)
     const [loading, setLoading] = useState(false)
 
@@ -59,7 +60,8 @@ export function PurchaseForm({ existingIngredients }: { existingIngredients: Ing
                 ingredientName: value,
                 quantity: Number(quantity),
                 purchasedAt: date,
-                kana: isNew ? kana : undefined
+                kana: isNew ? kana : undefined,
+                category: isNew ? newCategory : undefined
             })
             toast.success("Purchase registered!")
             // Reset
@@ -149,16 +151,31 @@ export function PurchaseForm({ existingIngredients }: { existingIngredients: Ing
             </div>
 
             {isNew && (
-                <div className="space-y-2">
-                    <Label htmlFor="kana">Kana (Shortcut) <span className="text-xs text-slate-500">- optional</span></Label>
-                    <Input
-                        id="kana"
-                        placeholder="e.g. ni (for Ninjin)"
-                        value={kana}
-                        onChange={e => setKana(e.target.value)}
-                    />
-                    <p className="text-xs text-slate-500">Enter a short alias for faster search next time.</p>
-                </div>
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="kana">Kana (Shortcut) <span className="text-xs text-slate-500">- optional</span></Label>
+                        <Input
+                            id="kana"
+                            placeholder="e.g. ni (for Ninjin)"
+                            value={kana}
+                            onChange={e => setKana(e.target.value)}
+                        />
+                        <p className="text-xs text-slate-500">Enter a short alias for faster search next time.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Category</Label>
+                        <select
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={newCategory}
+                            onChange={e => setNewCategory(e.target.value)}
+                        >
+                            <option value="冷蔵庫">冷蔵庫 (Fridge)</option>
+                            <option value="棚">棚 (Shelf)</option>
+                            <option value="倉庫">倉庫 (Stock)</option>
+                        </select>
+                    </div>
+                </>
             )}
 
             <div className="space-y-2">
