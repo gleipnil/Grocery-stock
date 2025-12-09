@@ -15,7 +15,8 @@ export interface Database {
                     user_id: string
                     name: string
                     kana: string | null
-                    category: string | null // '冷蔵庫' | '棚' | '倉庫'
+                    category: string | null
+                    type: 'raw' | 'dish' | null // Added type
                     expected_shelf_days: number | null
                     created_at: string
                 }
@@ -25,6 +26,7 @@ export interface Database {
                     name: string
                     kana?: string | null
                     category?: string | null
+                    type?: 'raw' | 'dish' | null
                     expected_shelf_days?: number | null
                     created_at?: string
                 }
@@ -34,6 +36,7 @@ export interface Database {
                     name?: string
                     kana?: string | null
                     category?: string | null
+                    type?: 'raw' | 'dish' | null
                     expected_shelf_days?: number | null
                     created_at?: string
                 }
@@ -114,6 +117,55 @@ export interface Database {
                     ingredient_id?: string | null
                     quantity?: number
                     used_at?: string
+                }
+            }
+            recipes: {
+                Row: {
+                    id: string
+                    user_id: string
+                    name: string
+                    description: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id?: string
+                    name: string
+                    description?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    name?: string
+                    description?: string | null
+                    created_at?: string
+                }
+            }
+            recipe_items: {
+                Row: {
+                    id: string
+                    recipe_id: string
+                    ingredient_id: string
+                    role: 'input' | 'output'
+                    quantity: number
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    recipe_id: string
+                    ingredient_id: string
+                    role: 'input' | 'output'
+                    quantity: number
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    recipe_id?: string
+                    ingredient_id?: string
+                    role?: 'input' | 'output'
+                    quantity?: number
+                    created_at?: string
                 }
             }
         }

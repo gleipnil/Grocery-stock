@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, PlusCircle, UtensilsCrossed, Settings } from 'lucide-react'
+import { Home, PlusCircle, Utensils, Settings, BookOpen, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function BottomNav() {
@@ -9,9 +9,10 @@ export default function BottomNav() {
 
     const items = [
         { href: '/', label: 'Stock', icon: Home },
-        { href: '/purchase', label: 'Purchase', icon: PlusCircle },
-        { href: '/consume', label: 'Consume', icon: UtensilsCrossed },
-        { href: '/settings', label: 'Master', icon: Settings },
+        { href: '/cook', label: 'Cook', icon: Utensils },
+        { href: '/purchase', label: 'Shop', icon: ShoppingCart },
+        { href: '/recipes', label: 'Recipes', icon: BookOpen },
+        { href: '/settings', label: 'Setting', icon: Settings },
     ]
 
     return (

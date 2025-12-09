@@ -71,6 +71,7 @@ export function IngredientMaster({ ingredients }: { ingredients: Ingredient[] })
                 <TableHeader>
                     <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
                         <TableHead>Kana</TableHead>
                         <TableHead>Shelf Days</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
