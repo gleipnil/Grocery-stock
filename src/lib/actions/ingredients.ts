@@ -53,3 +53,36 @@ export async function updateIngredientAction(data: { id: string, kana: string, e
 
     revalidatePath('/', 'layout')
 }
+
+export async function createIngredient(name: string, category: string = '冷蔵庫') {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+
+    // Check existing
+    const { data: existing } = await supabase
+        .from('ingredients')
+        .select('*')
+        .eq('name', name)
+        .eq('user_id', user.id)
+        .single()
+
+    if (existing) return existing
+
+    const { data: newIng, error } = await supabase
+        .from('ingredients')
+        .insert({
+            user_id: user.id,
+            name,
+            category,
+            expected_shelf_days: 7
+        })
+        .select()
+        .single()
+
+    if (error) throw error
+
+    // Revalidate relevant paths
+    revalidatePath('/', 'layout')
+    return newIng
+}
