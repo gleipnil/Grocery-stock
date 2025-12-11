@@ -96,14 +96,7 @@ export function PurchaseForm({ existingIngredients }: { existingIngredients: Ing
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[300px] p-0">
-                        <Command filter={(value, search) => {
-                            if (value.includes(search)) return 1
-                            // Check kana if available in existingIngredients
-                            // Shadcn Command usually filters by 'value' (label).
-                            // We need to pass both name and kana to the item text or handle filtering manually.
-                            // Hack: Render name + hidden kana
-                            return 0
-                        }}>
+                        <Command>
                             <CommandInput
                                 placeholder="Search name or kana..."
                                 value={searchQuery}
@@ -140,6 +133,7 @@ export function PurchaseForm({ existingIngredients }: { existingIngredients: Ing
                                                 )}
                                             />
                                             {ingredient.name}
+                                            {/* Kana is already in keywords, but showing it helps user know why it matched */}
                                             {ingredient.kana && <span className="ml-2 text-xs text-slate-400">({ingredient.kana})</span>}
                                         </CommandItem>
                                     ))}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createRecipe } from '@/lib/actions/recipes' // Need to export createRecipe from server action file
+import { createRecipe, updateRecipe, RecipeWithItems } from '@/lib/actions/recipes'
 import { toast } from 'sonner'
 import { Plus, Trash2 } from 'lucide-react'
 import {
@@ -19,12 +19,16 @@ import { Database } from '@/types/database.types'
 
 type Ingredient = Database['public']['Tables']['ingredients']['Row']
 
-export function RecipeForm({ ingredients }: { ingredients: Ingredient[] }) {
+export function RecipeForm({ ingredients, initialData }: { ingredients: Ingredient[], initialData?: RecipeWithItems }) {
     const router = useRouter()
-    const [name, setName] = useState("")
-    const [items, setItems] = useState<{ ingredient_id: string, role: 'input' | 'output', quantity: number }[]>([
-        { ingredient_id: "", role: 'input', quantity: 1 }
-    ])
+    const [name, setName] = useState(initialData?.name || "")
+    const [items, setItems] = useState<{ ingredient_id: string, role: 'input' | 'output', quantity: number }[]>(
+        initialData?.items.map(i => ({
+            ingredient_id: i.ingredient_id,
+            role: i.role as 'input' | 'output', // Cast as strictly typed
+            quantity: i.quantity
+        })) || [{ ingredient_id: "", role: 'input', quantity: 1 }]
+    )
     const [loading, setLoading] = useState(false)
 
     // Filter ingredients depending on role? 
@@ -55,14 +59,24 @@ export function RecipeForm({ ingredients }: { ingredients: Ingredient[] }) {
 
         setLoading(true)
         try {
-            await createRecipe({
-                name,
-                items
-            })
-            toast.success("Recipe created")
-            router.push('/recipes')
+            if (initialData) {
+                await updateRecipe(initialData.id, {
+                    name,
+                    items
+                })
+                toast.success("Recipe updated")
+                router.refresh() // Ensure server data is fresh
+                router.push('/recipes')
+            } else {
+                await createRecipe({
+                    name,
+                    items
+                })
+                toast.success("Recipe created")
+                router.push('/recipes')
+            }
         } catch (e) {
-            toast.error("Failed to create recipe")
+            toast.error("Failed to save recipe")
         } finally {
             setLoading(false)
         }
@@ -131,7 +145,7 @@ export function RecipeForm({ ingredients }: { ingredients: Ingredient[] }) {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Recipe'}
+                {loading ? 'Saving...' : (initialData ? 'Update Recipe' : 'Create Recipe')}
             </Button>
         </form>
     )
