@@ -3,8 +3,9 @@ import { getRecipe } from '@/lib/actions/recipes'
 import { RecipeForm } from '@/components/RecipeForm'
 import { notFound } from 'next/navigation'
 
-export default async function EditRecipePage({ params }: { params: { id: string } }) {
-    const recipe = await getRecipe(params.id)
+export default async function EditRecipePage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
+    const recipe = await getRecipe(id)
     const ingredients = await getIngredients()
 
     if (!recipe) {
